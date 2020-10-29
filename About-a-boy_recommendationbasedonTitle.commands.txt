@@ -1,0 +1,44 @@
+ALTER TABLE movies
+ADD IF NOT EXISTS lexemestitle tsvector;
+/* adding a column to compare the title */
+
+UPDATE movies
+SET lexemestitle = to_tsvector(title);
+/* the output value is 5229 */
+
+SELECT url FROM movies
+WHERE lexemestitle @@ to_tsquery(‘boy’);
+/* the output is 35 rows */
+
+ALTER TABLE movies
+ADD IF NOT EXISTS rank float4;
+/* command inlcuded if did not exist */
+
+UPDATE movies
+SET rank = ts_rank(lexemestitle,plainto_tsquery(
+(
+SELECT title FROM movies WHERE url=’about-a-boy’
+)
+));
+/* the output is 5229 */
+
+CREATE TABLE recommendationsBasedOnTitleFieldaboutaboy AS
+SELECT url, rank FROM movies WHERE rank > 0.99 ORDER BY rank DESC LIMIT 50;
+/* If the output SELECT 0 with the p 0.99, I have to set a lower treshold */
+
+DROP TABLE recommendationsBasedOnTitleFieldaboutaboy;
+/* first, delete the table that we already have */
+
+CREATE TABLE recommendationsBasedOnTitleFieldaboutaboy AS
+SELECT url, rank FROM movies WHERE rank > 0.5 ORDER BY rank DESC LIMIT 50;
+/* If the output SELECT 0 with the p 0.5, I have to set a lower treshold */
+
+DROP TABLE recommendationsBasedOnTitleFieldaboutaboy;
+/* first, delete the table that we already have */
+
+CREATE TABLE recommendationsBasedOnTitleFieldaboutaboy AS
+SELECT url, rank FROM movies WHERE rank > 0.05 ORDER BY rank DESC LIMIT 50;
+/* With the lower treshold, I receive 35 recommendations */
+
+\copy (SELECT * FROM recommendationsBasedOnTitleFieldaboutaboy) to /'home/pi/RSL/about-a-boy_top50recommendationsTitle.csv' WITH csv;
+/* with this csv file I'm creating my own recommendations */

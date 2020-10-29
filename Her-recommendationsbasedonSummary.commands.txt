@@ -1,0 +1,45 @@
+SELECT * FROM movies where url='her';
+/* check, if our favorite movie is included */
+
+ALTER TABLE movies
+ADD IF NOT EXISTS lexemesSummary tsvector;
+/* adding a column to compare the summaries */
+
+UPDATE movies
+SET lexemesSummary = to_tsvector(Summary);
+/* the output value is 5229 */
+
+SELECT url FROM movies
+WHERE lexemesSummary @@ to_tsquery(‘her’);
+/* the output is in the terminal but not able to see how many */
+
+ALTER TABLE movies
+ADD IF NOT EXISTS rank float4;
+/* adding a new column for rank (if that did not already exist) */ 
+
+UPDATE movies
+SET rank = ts_rank(lexemesSummary,plainto_tsquery(
+(
+SELECT Summary FROM movies WHERE url=’about-a-boy’
+)
+));
+/* the output is again 5229 */
+
+CREATE TABLE recommendationsBasedOnSummaryFieldaboutaboy AS
+SELECT url, rank FROM movies WHERE rank > 0.99 ORDER BY rank DESC LIMIT 50
+/* the output is SELECT 1 with p 0.99, so only one is similar to the one we choose "About the Boy", we need to set new theshold */
+
+DROP TABLE recommendationsBasedOnSummaryFieldaboutaboy;
+/* first, delete the table that we already have */
+
+CREATE TABLE recommendationsBasedOnSummaryFieldaboutaboy AS
+SELECT url, rank FROM movies WHERE rank > 0.5 ORDER BY rank DESC LIMIT 50;
+/* changing the treshold, we have 12 result, which seems like a better solution now */
+
+\copy (SELECT * FROM recommendationsBasedOnSummaryFieldaboutaboy) to
+‘/home/pi/RSL/about-boy_top50recommendationsSummary.csv’ WITH csv;
+/* this way the csv file with personal recommendations is created */
+
+
+Before sunset
+Her
